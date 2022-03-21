@@ -32,8 +32,9 @@ def main(args):
     #dataset = build_CocoDetection('val', 'C:\Code\_datasets\coco', True)
     #dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
-    path_to_ds = r'C:\Code\_datasets\nuimages'
-
+    #path_to_ds = r'C:\Code\_datasets\nuimages'
+    path_to_ds = r'/p/home/jusers/keser1/juwels/detr_simple/data/sets/nuimage'
+    
     # Test training dataset
     nuim_dataset = NuimDataset(path_to_ds, version='v1.0-mini', transform=transforms.Compose([Rescale((800, 800))]))
     dataloader = DataLoader(nuim_dataset, batch_size=4, shuffle=True, num_workers=0, collate_fn=collate_fn_nuim)    
