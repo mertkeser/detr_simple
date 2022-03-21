@@ -8,7 +8,7 @@
 
 # Setup for nuimages dataset
 - "sudo ./setup.sh" for downloading the nuimages dataset
-- "pip install -r requirement.txt" for downloading the required python packages
+- "pip install -r requirements.txt" for downloading the required python packages
 
 # License
 
