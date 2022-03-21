@@ -4,6 +4,8 @@
 
 * Official [Code](https://github.com/facebookresearch/detr)
 
+* Python version should 3.8
+
 # Setup for nuimages dataset
 - "sudo ./setup.sh" for downloading the nuimages dataset
 - "pip install -r requirement.txt" for downloading the required python packages
