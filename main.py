@@ -1,3 +1,4 @@
+from operator import ge
 from losses.object_detection_losses import SetCriterion
 from models.simple_detr import SimpleDETR
 from datasets import DummyDataset, build_CocoDetection
@@ -7,6 +8,8 @@ from nuim_dataloader.nuim_dataloader import NuimDataset, Rescale, transforms, co
 from utils.funcs import format_nuim_targets
 import argparse
 import sys
+import torch
+
 
 #lr = 1e-4
 #wd = 1e-4
@@ -15,6 +18,14 @@ import sys
 
 #ds_length = 100
 #batch_size = 10
+
+def get_cuda_device(device_number):
+    # return torch.device('cuda:{}'.format(gpu) if (torch.cuda.is_available() and (gpu < torch.cuda.device_count())) else "cpu")
+    if torch.cuda.is_available() and (device_number < torch.cuda.device_count()):
+        return torch.device('cuda:{}'.format(device_number))
+    else: 
+        return torch.device('cpu')
+
 
 def main(args):
 
@@ -27,13 +38,15 @@ def main(args):
     num_classes = args.num_classes
     ds_length = args.ds_length
     batch_size = args.batch_size
+    gpu = args.gpu
+    device = get_cuda_device(gpu)
 
     #dataset = DummyDataset(ds_length, num_classes=num_classes)
     #dataset = build_CocoDetection('val', 'C:\Code\_datasets\coco', True)
     #dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
     #path_to_ds = r'C:\Code\_datasets\nuimages'
-    path_to_ds = r'/p/home/jusers/keser1/juwels/detr_simple/data/sets/nuimage'
+    path_to_ds = r'./data/sets/nuimage'
     
     # Test training dataset
     nuim_dataset = NuimDataset(path_to_ds, version='v1.0-mini', transform=transforms.Compose([Rescale((800, 800))]))
@@ -45,17 +58,20 @@ def main(args):
     
     criterion = SetCriterion(num_classes=num_classes)
 
+    model = model.to(device)
+
     for epoch in range(epochs):
 
         epoch_loss = 0.
 
         for img, tgts in dataloader:
 
+            img = img.to(device)
+            tgts_formatted_to_device = format_nuim_targets(tgts, device)
+
             pred = model(img)
 
-            targets_new = format_nuim_targets(tgts)
-
-            batch_losses_dict, total_batch_loss = criterion(pred, targets_new)
+            batch_losses_dict, total_batch_loss = criterion(pred, tgts_formatted_to_device)
 
             optimizer.zero_grad()
             total_batch_loss.backward()
@@ -78,6 +94,7 @@ def parse_args(argv):
     parser.add_argument('--num_classes', default=10, type=int, help='Number of Classes')
     parser.add_argument('--ds_length', default=100, type=int, help='Length of the ds')
     parser.add_argument('--batch_size', default=15, type=int, help='Number of Classes')
+    parser.add_argument('--gpu', default=0, type=int, help='GPU device number, ignored if absent')
 
     try:
         parsed = parser.parse_args(argv)
