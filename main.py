@@ -10,6 +10,7 @@ import argparse
 import sys
 import torch
 import os
+import time
 
 
 #lr = 1e-4
@@ -47,6 +48,7 @@ def load_model(num_classes, device, folder, name='recent.pth'):
 
 
 def main(args):
+    start_time = time.time()
 
     #Introducing the arguments
     lr = args.lr
@@ -84,11 +86,15 @@ def main(args):
 
     for epoch in range(epochs):
 
+        epoch_start_time = time.time()
+
         epoch_loss = 0.
 
         batches = len(dataloader.dataset) // dataloader.batch_size
 
         for batch_num, (img, tgts) in enumerate(dataloader):
+
+            batch_start_time = time.time()
 
             img = img.to(device)
             tgts_formatted_to_device = format_nuim_targets(tgts, device)
@@ -101,18 +107,21 @@ def main(args):
             total_batch_loss.backward()
             optimizer.step()
 
-            print('Batch [{}/{}] loss:'.format(batch_num + 1, batches), total_batch_loss.detach().cpu().numpy())
+            batch_loss_np = total_batch_loss.detach().cpu().numpy()
 
             epoch_loss += total_batch_loss.detach().cpu().numpy()
 
             #save_model(model, folder, name='e{}b{}.pth'.format(epoch, batch_num))
-
-        print('Epoch [{}/{}] loss:'.format(epoch + 1, epochs), epoch_loss)
+            batch_delta_time = time.time() - batch_start_time
+            print('({:.3f}s) Batch [{}/{}] loss:'.format(batch_delta_time, batch_num + 1, batches), batch_loss_np)
 
         #save_model(model, folder, name='e{}.pth'.format(epoch))
         save_model(model, folder)
 
-    pass
+        epoch_delta_time = time.time() - epoch_start_time
+        print('({:.3f}s) Epoch [{}/{}] loss:'.format(epoch_delta_time, epoch + 1, epochs), epoch_loss)
+
+    print('Training ended in {:.3f}s'.format(time.time() - start_time))
 
 
 def parse_args(argv):
