@@ -63,14 +63,14 @@ def interpolate(input, size=None, scale_factor=None, mode="nearest", align_corne
     return torchvision.ops.misc.interpolate(input, size, scale_factor, mode, align_corners)
 
 
-def format_nuim_targets(tgts):
+def format_nuim_targets(tgts, device):
     new_targets = []
 
     def extract_labels_and_boxes(tgt):
         labels = []
         boxes = []
         for i in range(len(tgt)):
-            tensor_label_box = tgt[i]
+            tensor_label_box = tgt[i].to(device)
             tensor_label = tensor_label_box[0].long()
             tensor_box = tensor_label_box[1:].float()
 

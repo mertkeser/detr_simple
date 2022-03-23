@@ -1,3 +1,4 @@
+from operator import ge
 from losses.object_detection_losses import SetCriterion
 from models.simple_detr import SimpleDETR
 from datasets import DummyDataset, build_CocoDetection
@@ -7,6 +8,10 @@ from nuim_dataloader.nuim_dataloader import NuimDataset, Rescale, transforms, co
 from utils.funcs import format_nuim_targets
 import argparse
 import sys
+import torch
+import os
+import time
+
 
 #lr = 1e-4
 #wd = 1e-4
@@ -16,7 +21,34 @@ import sys
 #ds_length = 100
 #batch_size = 10
 
+def get_cuda_device(device_number):
+    # return torch.device('cuda:{}'.format(gpu) if (torch.cuda.is_available() and (gpu < torch.cuda.device_count())) else "cpu")
+    if torch.cuda.is_available() and (device_number < torch.cuda.device_count()):
+        return torch.device('cuda:{}'.format(device_number))
+    else: 
+        return torch.device('cpu')
+
+
+def save_model(model, folder, name='recent.pth'):
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+    print('Saving model to: {}'.format(os.path.join(folder, name)))
+    torch.save(model.state_dict(), os.path.join(folder, name))
+
+
+def load_model(num_classes, device, folder, name='recent.pth'):
+    model = SimpleDETR(num_classes=num_classes)
+    path = os.path.join(folder, name)
+    if os.path.exists(path):
+        print('Loading model from: {}'.format(path))
+        model.load_state_dict(torch.load(path, map_location=lambda storage, loc: storage))
+        return model
+    print('Initializing model: {}'.format(path))
+    return model
+
+
 def main(args):
+    start_time = time.time()
 
     #Introducing the arguments
     lr = args.lr
@@ -27,47 +59,69 @@ def main(args):
     num_classes = args.num_classes
     ds_length = args.ds_length
     batch_size = args.batch_size
+    gpu = args.gpu
+    device = get_cuda_device(gpu)
+    folder = args.cp
 
     #dataset = DummyDataset(ds_length, num_classes=num_classes)
     #dataset = build_CocoDetection('val', 'C:\Code\_datasets\coco', True)
     #dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
     #path_to_ds = r'C:\Code\_datasets\nuimages'
-    path_to_ds = r'/p/home/jusers/keser1/juwels/detr_simple/data/sets/nuimage'
+    path_to_ds = r'./data/sets/nuimage'
     
     # Test training dataset
     nuim_dataset = NuimDataset(path_to_ds, version='v1.0-mini', transform=transforms.Compose([Rescale((800, 800))]))
     dataloader = DataLoader(nuim_dataset, batch_size=4, shuffle=True, num_workers=0, collate_fn=collate_fn_nuim)    
 
-    model = SimpleDETR(num_classes=num_classes)
+    #model = SimpleDETR(num_classes=num_classes)
+
+    model = load_model(num_classes, device, folder)
 
     optimizer = AdamW(model.parameters(), lr=lr, weight_decay=wd)    
     
     criterion = SetCriterion(num_classes=num_classes)
 
+    model = model.to(device)
+
     for epoch in range(epochs):
+
+        epoch_start_time = time.time()
 
         epoch_loss = 0.
 
-        for img, tgts in dataloader:
+        batches = len(dataloader.dataset) // dataloader.batch_size
+
+        for batch_num, (img, tgts) in enumerate(dataloader):
+
+            batch_start_time = time.time()
+
+            img = img.to(device)
+            tgts_formatted_to_device = format_nuim_targets(tgts, device)
 
             pred = model(img)
 
-            targets_new = format_nuim_targets(tgts)
-
-            batch_losses_dict, total_batch_loss = criterion(pred, targets_new)
+            batch_losses_dict, total_batch_loss = criterion(pred, tgts_formatted_to_device)
 
             optimizer.zero_grad()
             total_batch_loss.backward()
             optimizer.step()
 
-            print('Batch loss:', total_batch_loss.detach().cpu().numpy())
+            batch_loss_np = total_batch_loss.detach().cpu().numpy()
 
             epoch_loss += total_batch_loss.detach().cpu().numpy()
 
-        print('{} epoch loss:'.format(epoch), epoch_loss)
+            #save_model(model, folder, name='e{}b{}.pth'.format(epoch, batch_num))
+            batch_delta_time = time.time() - batch_start_time
+            print('({:.3f}s) Batch [{}/{}] loss:'.format(batch_delta_time, batch_num + 1, batches), batch_loss_np)
 
-    pass
+        #save_model(model, folder, name='e{}.pth'.format(epoch))
+        save_model(model, folder)
+
+        epoch_delta_time = time.time() - epoch_start_time
+        print('({:.3f}s) Epoch [{}/{}] loss:'.format(epoch_delta_time, epoch + 1, epochs), epoch_loss)
+
+    print('Training ended in {:.3f}s'.format(time.time() - start_time))
 
 
 def parse_args(argv):
@@ -78,6 +132,8 @@ def parse_args(argv):
     parser.add_argument('--num_classes', default=10, type=int, help='Number of Classes')
     parser.add_argument('--ds_length', default=100, type=int, help='Length of the ds')
     parser.add_argument('--batch_size', default=15, type=int, help='Number of Classes')
+    parser.add_argument('--gpu', default=0, type=int, help='GPU device number, ignored if absent')
+    parser.add_argument('--cp', default='checkpoints', type=str, help='Checkpoints folder')
 
     try:
         parsed = parser.parse_args(argv)
