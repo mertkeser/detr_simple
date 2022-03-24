@@ -50,7 +50,7 @@ class Rescale(object):
 class NuimDataset(Dataset):
     """NuImage dataset."""
 
-    def __init__(self, root_dir = "", version = 'v1.0-mini', set='train', train_ratio=0.8, transform=None):
+    def __init__(self, root_dir = "", version = 'v1.0-mini', set='train', train_ratio=1.0, transform=None):
         """
         Args:
             root_dir (string): Directory with NuImage Dataset.
