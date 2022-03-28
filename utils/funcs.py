@@ -69,6 +69,8 @@ def format_nuim_targets(tgts, device):
     def extract_labels_and_boxes(tgt):
         labels = []
         boxes = []
+        if tgt.shape[0] == 0:
+            return None, None
         for i in range(len(tgt)):
             tensor_label_box = tgt[i].to(device)
             tensor_label = tensor_label_box[0].long()
@@ -81,5 +83,7 @@ def format_nuim_targets(tgts, device):
 
     for tgt in tgts:
         labels, boxes = extract_labels_and_boxes(tgt)
+        if labels is None:
+            continue
         new_targets.append({"labels": labels, "boxes": boxes})
     return new_targets
