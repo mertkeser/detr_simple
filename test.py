@@ -49,7 +49,7 @@ def load_model(num_classes, device, folder, name='recent.pth'):
     print('Initializing model: {}'.format(path))
     return model
 
-def main(args):
+def main():
 
     #path_to_ds = r'C:\Code\_datasets\nuimages'
     path_to_ds = r'./data/sets/nuimage'
@@ -67,68 +67,19 @@ def main(args):
     criterion = SetCriterion(num_classes=num_classes)
 
     model = model.to(device)
+    
+    nuim_dataset = NuimDataset(path_to_ds, version='v1.0-mini', transform=transforms.Compose([Rescale((800, 800))]))
+    dataloader = DataLoader(nuim_dataset, batch_size=1, shuffle=True, num_workers=0, collate_fn=collate_fn_nuim)    
 
-    for epoch in range(epochs):
+    for batch_num, (img, tgts) in enumerate(dataloader):
 
-        epoch_start_time = time.time()
+        img = img.to(device)
+        tgts_formatted_to_device = format_nuim_targets(tgts, device)
 
-        epoch_loss = 0.
-
-        batches = len(dataloader.dataset) // dataloader.batch_size
-
-        for batch_num, (img, tgts) in enumerate(dataloader):
-
-            batch_start_time = time.time()
-
-            img = img.to(device)
-            tgts_formatted_to_device = format_nuim_targets(tgts, device)
-
-            pred = model(img)
-
-            batch_losses_dict, total_batch_loss = criterion(pred, tgts_formatted_to_device)
-
-            optimizer.zero_grad()
-            total_batch_loss.backward()
-            optimizer.step()
-
-            batch_loss_np = total_batch_loss.detach().cpu().numpy()
-
-            epoch_loss += total_batch_loss.detach().cpu().numpy()
-
-            #save_model(model, folder, name='e{}b{}.pth'.format(epoch, batch_num))
-            batch_delta_time = time.time() - batch_start_time
-            print('({:.3f}s) Batch [{}/{}] loss:'.format(batch_delta_time, batch_num + 1, batches), batch_loss_np)
-
-        #save_model(model, folder, name='e{}.pth'.format(epoch))
-        save_model(model, folder)
-
-        epoch_delta_time = time.time() - epoch_start_time
-        print('({:.3f}s) Epoch [{}/{}] loss:'.format(epoch_delta_time, epoch + 1, epochs), epoch_loss)
-
-    print('Training ended in {:.3f}s'.format(time.time() - start_time))
-
-
-def parse_args(argv):
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--lr', default=1e-4, type=float, help='Initial learning rate')
-    parser.add_argument('--wd', default=1e-4, type=float, help='wd')
-    parser.add_argument('--epochs', default=10, type=int, help='Number of epochs')
-    parser.add_argument('--num_classes', default=10, type=int, help='Number of Classes')
-    parser.add_argument('--ds_length', default=100, type=int, help='Length of the ds')
-    parser.add_argument('--batch_size', default=15, type=int, help='Number of Classes')
-    parser.add_argument('--gpu', default=0, type=int, help='GPU device number, ignored if absent')
-    parser.add_argument('--cp', default='checkpoints', type=str, help='Checkpoints folder')
-
-    try:
-        parsed = parser.parse_args(argv)
-        print(parsed)
-    except argparse.ArgumentError:
-        parser.print_help()
-        sys.exit(2)
-    else:
-        return parsed
-
+        pred = model(img)
+        
+        new_path = os.path.join(opt.save_data_dir, opt.dataset_name, batch_num)
+        save_image(pred, "%s" % (new_path), normalize=True)
 
 if __name__ == '__main__':    
-    args = parse_args(sys.argv[1:])    
-    main(args)
+    main()
