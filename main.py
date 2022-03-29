@@ -142,7 +142,7 @@ def parse_args(argv):
     parser.add_argument('--gpu', default=[0,1,2,3], help='GPU device number, ignored if absent', nargs='+')
     parser.add_argument('--cp', default='checkpoints', type=str, help='Checkpoints folder, ignored if it doesn\'t exist')
     parser.add_argument('--ds_version', default='v1.0-train', type=str, help='dataset version')
-    parser.add_argument('--ds_path', default='/p/scratch/training2203/heatai/data/sets/', type=str, help='dataset path')
+    parser.add_argument('--ds_path', default='/p/scratch/training2203/heatai/data/sets/nuimages', type=str, help='dataset path')
 
     try:
         parsed = parser.parse_args(argv)
