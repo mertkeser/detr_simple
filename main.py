@@ -11,6 +11,7 @@ import sys
 import torch
 import os
 import time
+from torch import nn
 
 
 #lr = 1e-4
@@ -21,13 +22,8 @@ import time
 #ds_length = 100
 #batch_size = 10
 
-def get_cuda_device(device_number):
-    # return torch.device('cuda:{}'.format(gpu) if (torch.cuda.is_available() and (gpu < torch.cuda.device_count())) else "cpu")
-    if torch.cuda.is_available() and (device_number < torch.cuda.device_count()):
-        return torch.device('cuda:{}'.format(device_number))
-    else: 
-        return torch.device('cpu')
-
+def get_cuda_device():
+    return torch.device('cuda' if torch.cuda.is_available() else "cpu")
 
 def save_model(model, folder, name='recent.pth'):
     if not os.path.exists(folder):
@@ -59,8 +55,8 @@ def main(args):
     num_classes = args.num_classes
     ds_length = args.ds_length
     batch_size = args.batch_size
-    gpu = args.gpu
-    device = get_cuda_device(gpu)
+    gpus = [int(i) for i in (args.gpu)]
+    device = get_cuda_device()
     folder = args.cp
 
     #dataset = DummyDataset(ds_length, num_classes=num_classes)
@@ -68,7 +64,7 @@ def main(args):
     #dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
     #path_to_ds = r'C:\Code\_datasets\nuimages'
-    path_to_ds = r'./data/sets/nuimage'
+    path_to_ds = r"/p/scratch/training2203/heatai/data/sets/nuimage"
     
     # Test training dataset
     nuim_dataset = NuimDataset(path_to_ds, version='v1.0-mini', transform=transforms.Compose([Rescale((800, 800))]))
@@ -83,6 +79,8 @@ def main(args):
     criterion = SetCriterion(num_classes=num_classes)
 
     model = model.to(device)
+    
+    model = nn.DataParallel(model, device_ids = gpus)
 
     for epoch in range(epochs):
 
@@ -132,7 +130,7 @@ def parse_args(argv):
     parser.add_argument('--num_classes', default=10, type=int, help='Number of Classes')
     parser.add_argument('--ds_length', default=100, type=int, help='Length of the ds')
     parser.add_argument('--batch_size', default=15, type=int, help='Number of Classes')
-    parser.add_argument('--gpu', default=0, type=int, help='GPU device number, ignored if absent')
+    parser.add_argument('--gpu', default=[0,1,2,3], help='GPU device number, ignored if absent', nargs='+')
     parser.add_argument('--cp', default='checkpoints', type=str, help='Checkpoints folder')
 
     try:
