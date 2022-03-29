@@ -50,7 +50,7 @@ class Rescale(object):
 class NuimDataset(Dataset):
     """NuImage dataset."""
 
-    def __init__(self, root_dir = "", version = 'v1.0-mini', set='train', train_ratio=1.0, transform=None):
+    def __init__(self, root_dir = "", version = 'v1.0-mini', set='train', train_ratio=1.0, transform=None, lazy=False):
         """
         Args:
             root_dir (string): Directory with NuImage Dataset.
@@ -62,7 +62,7 @@ class NuimDataset(Dataset):
         self.root_dir = root_dir
         self.transform = transform
         self.set = set
-        self.nuim = NuImages(dataroot=root_dir, version=version, verbose=False, lazy=False)
+        self.nuim = NuImages(dataroot=root_dir, version=version, verbose=False, lazy=lazy)
         self.split_index = int(len(self.nuim.sample) * train_ratio)
         self.convert_tensor = transforms.ToTensor()
         self.class_to_number_table = {
