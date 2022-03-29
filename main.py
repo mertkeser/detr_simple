@@ -122,8 +122,8 @@ def main(args):
             batch_delta_time = time.time() - batch_start_time
             print('({:.3f}s) Batch [{}/{}] loss:'.format(batch_delta_time, batch_num + 1, batches), batch_loss_np)
 
-        #save_model(model, folder, name='e{}.pth'.format(epoch))
-        save_model(model, folder)
+        save_model(model, folder, name='e{}_gpu{}_batch{}.pth'.format(epoch,args.gpu,args.batch_size))
+        #save_model(model, folder)
 
         epoch_delta_time = time.time() - epoch_start_time
         print('({:.3f}s) Epoch [{}/{}] loss:'.format(epoch_delta_time, epoch + 1, epochs), epoch_loss)
@@ -138,7 +138,7 @@ def parse_args(argv):
     parser.add_argument('--epochs', default=10, type=int, help='Number of epochs')
     parser.add_argument('--num_classes', default=10, type=int, help='Number of Classes')
     parser.add_argument('--ds_length', default=100, type=int, help='Length of the ds')
-    parser.add_argument('--batch_size', default=15, type=int, help='Number of Classes')
+    parser.add_argument('--batch_size', default=32, type=int, help='Number of Classes')
     parser.add_argument('--gpu', default=[0,1,2,3], help='GPU device number, ignored if absent', nargs='+')
     parser.add_argument('--cp', default='checkpoints', type=str, help='Checkpoints folder, ignored if it doesn\'t exist')
     parser.add_argument('--ds_version', default='v1.0-train', type=str, help='dataset version')
