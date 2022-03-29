@@ -5,7 +5,7 @@ from datasets import DummyDataset, build_CocoDetection
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
 from nuim_dataloader.nuim_dataloader import NuimDataset, Rescale, transforms, collate_fn_nuim
-from utils.funcs import format_nuim_targets
+from utils.funcs import format_nuim_targets, generate_trace_report
 import argparse
 import sys
 import torch
@@ -68,11 +68,14 @@ def main(args):
     
     # Test training dataset
     nuim_dataset = NuimDataset(path_to_ds, version='v1.0-mini', transform=transforms.Compose([Rescale((800, 800))]))
-    dataloader = DataLoader(nuim_dataset, batch_size=4, shuffle=True, num_workers=0, collate_fn=collate_fn_nuim)    
+    dataloader = DataLoader(nuim_dataset, batch_size=args.batch_size, shuffle=True, num_workers=0, collate_fn=collate_fn_nuim)
 
     #model = SimpleDETR(num_classes=num_classes)
 
     model = load_model(num_classes, device, folder)
+
+    generate_trace_report(model, torch.device('cpu'), batch_size=20, input_size=(800, 800), filename="trace_cpu.json")
+    generate_trace_report(model, device, batch_size=20, input_size=(800, 800), filename="trace.json")
 
     optimizer = AdamW(model.parameters(), lr=lr, weight_decay=wd)    
     
