@@ -57,18 +57,27 @@ def main(args):
     batch_size = args.batch_size
     gpus = [int(i) for i in (args.gpu)]
     device = get_cuda_device()
+    run_on_gpu = "gpu" in str(device) or len(gpus) > 0
     folder = args.cp
+    dsversion = args.ds_version
+    dspath = args.ds_path
 
     #dataset = DummyDataset(ds_length, num_classes=num_classes)
     #dataset = build_CocoDetection('val', 'C:\Code\_datasets\coco', True)
     #dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
     #path_to_ds = r'C:\Code\_datasets\nuimages'
-    path_to_ds = r"/p/scratch/training2203/heatai/data/sets/nuimage"
+    #path_to_ds = r"/p/scratch/training2203/heatai/data/sets/nuimage"
     
     # Test training dataset
-    nuim_dataset = NuimDataset(path_to_ds, version='v1.0-mini', transform=transforms.Compose([Rescale((800, 800))]))
-    dataloader = DataLoader(nuim_dataset, batch_size=4, shuffle=True, num_workers=0, collate_fn=collate_fn_nuim)    
+    nuim_dataset = NuimDataset(dspath, version=dsversion, transform=transforms.Compose([Rescale((800, 800))]))
+    
+    dataloader = DataLoader(nuim_dataset,
+                            batch_size=batch_size,
+                            shuffle=True,
+                            num_workers=4*len(gpus), #4 produces 4 threads per GPU to shuffle the data to device
+                            collate_fn=collate_fn_nuim,
+                            pin_memory = False if run_on_gpu else True)    
 
     #model = SimpleDETR(num_classes=num_classes)
 
@@ -131,7 +140,9 @@ def parse_args(argv):
     parser.add_argument('--ds_length', default=100, type=int, help='Length of the ds')
     parser.add_argument('--batch_size', default=15, type=int, help='Number of Classes')
     parser.add_argument('--gpu', default=[0,1,2,3], help='GPU device number, ignored if absent', nargs='+')
-    parser.add_argument('--cp', default='checkpoints', type=str, help='Checkpoints folder')
+    parser.add_argument('--cp', default='checkpoints', type=str, help='Checkpoints folder, ignored if it doesn\'t exist')
+    parser.add_argument('--ds_version', default='v1.0-train', type=str, help='dataset version')
+    parser.add_argument('--ds_path', default='/p/scratch/training2203/heatai/data/sets/', type=str, help='dataset path')
 
     try:
         parsed = parser.parse_args(argv)
