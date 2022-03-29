@@ -62,7 +62,7 @@ class NuimDataset(Dataset):
         self.root_dir = root_dir
         self.transform = transform
         self.set = set
-        self.nuim = NuImages(dataroot=root_dir, version=version, verbose=False, lazy=True)
+        self.nuim = NuImages(dataroot=root_dir, version=version, verbose=False, lazy=False)
         self.split_index = int(len(self.nuim.sample) * train_ratio)
         self.convert_tensor = transforms.ToTensor()
         self.class_to_number_table = {
