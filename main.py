@@ -84,8 +84,9 @@ def main(args):
 
     model = load_model(num_classes, device, folder)
 
-    generate_trace_report(model, torch.device('cpu'), batch_size=20, input_size=(800, 800), filename="trace_cpu.json")
-    generate_trace_report(model, device, batch_size=20, input_size=(800, 800), filename="trace.json")
+    if args.print_trace:
+        generate_trace_report(model, torch.device('cpu'), batch_size=20, input_size=(800, 800), filename="trace_cpu.json")
+        generate_trace_report(model, device, batch_size=20, input_size=(800, 800), filename="trace.json")
 
     optimizer = AdamW(model.parameters(), lr=lr, weight_decay=wd)    
     
@@ -151,6 +152,7 @@ def parse_args(argv):
     parser.add_argument('--cp', default="", type=str, help='Checkpoints folder (note: if the folder does not exist, checkpointing is skipped)')
     parser.add_argument('--ds_version', default='v1.0-train', type=str, help='dataset version')
     parser.add_argument('--ds_path', default='/p/scratch/training2203/heatai/data/sets/nuimage/', type=str, help='dataset path')
+    parser.add_argument('--print_trace', default=False, action='store_true', help='print a trace report')
 
     try:
         parsed = parser.parse_args(argv)
