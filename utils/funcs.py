@@ -92,7 +92,7 @@ def format_nuim_targets(tgts, device):
 
 
 def generate_trace_report(model, device, batch_size=20, input_size=(800, 800), filename="trace.json"):
-    input_data = torch.randn(batch_size, 3, input_size(0), input_size(1)).to(device)
+    input_data = torch.randn(batch_size, 3, input_size[0], input_size[1]).to(device)
     model = deepcopy(model.to(device))
     with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], profile_memory=True,
                  record_shapes=True) as prof:
