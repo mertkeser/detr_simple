@@ -122,7 +122,7 @@ def main(args):
             batch_delta_time = time.time() - batch_start_time
             print('({:.3f}s) Batch [{}/{}] loss:'.format(batch_delta_time, batch_num + 1, batches), batch_loss_np)
 
-        save_model(model, folder, name='e{}_gpu{}_batch{}.pth'.format(epoch,args.gpu,args.batch_size))
+        save_model(model, folder, name='e{}.pth'.format(epoch))
         #save_model(model, folder)
 
         epoch_delta_time = time.time() - epoch_start_time
