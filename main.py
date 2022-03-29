@@ -12,7 +12,7 @@ import torch
 import os
 import time
 from torch import nn
-
+from pathlib import Path
 
 #lr = 1e-4
 #wd = 1e-4
@@ -34,12 +34,13 @@ def save_model(model, folder, name='recent.pth'):
 
 def load_model(num_classes, device, folder, name='recent.pth'):
     model = SimpleDETR(num_classes=num_classes)
-    path = os.path.join(folder, name)
-    if os.path.exists(path):
+    croot = Path(folder)
+    if croot.exists() and (croot / name).exists():
+        path = croot / name
         print('Loading model from: {}'.format(path))
-        model.load_state_dict(torch.load(path, map_location=lambda storage, loc: storage))
+        model.load_state_dict(torch.load(str(path), map_location=lambda storage, loc: storage))
         return model
-    print('Initializing model: {}'.format(path))
+
     return model
 
 
@@ -123,7 +124,11 @@ def main(args):
             print('({:.3f}s) Batch [{}/{}] loss:'.format(batch_delta_time, batch_num + 1, batches), batch_loss_np)
 
         #save_model(model, folder, name='e{}.pth'.format(epoch))
-        save_model(model, folder)
+        if Path(folder).exists():
+            print(f'checkpoint written to {folder}')
+            save_model(model, folder)
+        else:
+            print('skipping writing checkpoints')
 
         epoch_delta_time = time.time() - epoch_start_time
         print('({:.3f}s) Epoch [{}/{}] loss:'.format(epoch_delta_time, epoch + 1, epochs), epoch_loss)
@@ -140,9 +145,9 @@ def parse_args(argv):
     parser.add_argument('--ds_length', default=100, type=int, help='Length of the ds')
     parser.add_argument('--batch_size', default=15, type=int, help='Number of Classes')
     parser.add_argument('--gpu', default=[0,1,2,3], help='GPU device number, ignored if absent', nargs='+')
-    parser.add_argument('--cp', default='checkpoints', type=str, help='Checkpoints folder, ignored if it doesn\'t exist')
+    parser.add_argument('--cp', default="", type=str, help='Checkpoints folder (note: if the folder does not exist, checkpointing is skipped)')
     parser.add_argument('--ds_version', default='v1.0-train', type=str, help='dataset version')
-    parser.add_argument('--ds_path', default='/p/scratch/training2203/heatai/data/sets/', type=str, help='dataset path')
+    parser.add_argument('--ds_path', default='/p/scratch/training2203/heatai/data/sets/nuimage/', type=str, help='dataset path')
 
     try:
         parsed = parser.parse_args(argv)
