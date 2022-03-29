@@ -78,7 +78,7 @@ def main(args):
                             shuffle=True,
                             num_workers=4*len(gpus), #4 produces 4 threads per GPU to shuffle the data to device
                             collate_fn=collate_fn_nuim,
-                            pin_memory = False if run_on_gpu else True)    
+                            pin_memory = True if run_on_gpu else False)
 
     #model = SimpleDETR(num_classes=num_classes)
 
