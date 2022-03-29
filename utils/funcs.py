@@ -1,6 +1,8 @@
 import torch
 from torchvision.ops.boxes import box_area
+from torch.profiler import profile, record_function, ProfilerActivity
 import torchvision
+from copy import deepcopy
 
 
 def generalized_box_iou(boxes1, boxes2):
@@ -87,3 +89,13 @@ def format_nuim_targets(tgts, device):
             continue
         new_targets.append({"labels": labels, "boxes": boxes})
     return new_targets
+
+
+def generate_trace_report(model, device, batch_size=20, input_size=(800, 800), filename="trace.json"):
+    input_data = torch.randn(batch_size, 3, input_size[0], input_size[1]).to(device)
+    model = deepcopy(model.to(device))
+    with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], profile_memory=True,
+                 record_shapes=True) as prof:
+        _ = model(input_data)
+    print(prof.key_averages().table(sort_by='cuda_time_total', row_limit=5))
+    prof.export_chrome_trace(filename)

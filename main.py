@@ -5,7 +5,7 @@ from datasets import DummyDataset, build_CocoDetection
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
 from nuim_dataloader.nuim_dataloader import NuimDataset, Rescale, transforms, collate_fn_nuim
-from utils.funcs import format_nuim_targets
+from utils.funcs import format_nuim_targets, generate_trace_report
 import argparse
 import sys
 import torch
@@ -84,6 +84,9 @@ def main(args):
 
     model = load_model(num_classes, device, folder)
 
+    generate_trace_report(model, torch.device('cpu'), batch_size=20, input_size=(800, 800), filename="trace_cpu.json")
+    generate_trace_report(model, device, batch_size=20, input_size=(800, 800), filename="trace.json")
+
     optimizer = AdamW(model.parameters(), lr=lr, weight_decay=wd)    
     
     criterion = SetCriterion(num_classes=num_classes)
@@ -143,7 +146,7 @@ def parse_args(argv):
     parser.add_argument('--epochs', default=10, type=int, help='Number of epochs')
     parser.add_argument('--num_classes', default=10, type=int, help='Number of Classes')
     parser.add_argument('--ds_length', default=100, type=int, help='Length of the ds')
-    parser.add_argument('--batch_size', default=15, type=int, help='Number of Classes')
+    parser.add_argument('--batch_size', default=32, type=int, help='Number of Classes')
     parser.add_argument('--gpu', default=[0,1,2,3], help='GPU device number, ignored if absent', nargs='+')
     parser.add_argument('--cp', default="", type=str, help='Checkpoints folder (note: if the folder does not exist, checkpointing is skipped)')
     parser.add_argument('--ds_version', default='v1.0-train', type=str, help='dataset version')
