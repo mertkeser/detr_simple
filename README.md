@@ -52,6 +52,8 @@ $ tar xf nuimages-v1.0-mini.tgz -C nuimage
 
 # Training
 
+When you are logged into a single node with 4 GPUs, the training can be performed with:
+
 ```
 $ python ./main.py --epochs 5 --batch_size 64 --gpu 0 1 2 3
 #...
