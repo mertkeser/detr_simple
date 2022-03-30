@@ -62,7 +62,7 @@ if __name__ == '__main__':
 
     # setup
     device = None
-    if profil_target is 'cpu':
+    if profil_target == 'cpu':
         device = torch.device('cpu')
     elif torch.cuda.is_available():
         device = get_cuda_device()
@@ -95,7 +95,7 @@ if __name__ == '__main__':
 
     model = model.to(device)
 
-    if profil_target is 'xgpu':
+    if profil_target == 'xgpu':
         model = nn.DataParallel(model, device_ids=gpus)
 
     nb_iters = 13
