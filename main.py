@@ -125,8 +125,13 @@ def main(args):
 
     # default is to train from scratch
     # we might want to consider loading a checkpoint
-    # new_model = SimpleDETR.load_from_checkpoint(checkpoint_path="example.ckpt")
-    model = SimpleDETR(num_classes=num_classes, lr=lr, wd=wd, loss_func=criterion)
+    refpath = Path(args.reference)
+    model = None
+    if not args.reference:
+        if refpath.exists() and refpath.stat().st_size > 0:
+            model = SimpleDETR.load_from_checkpoint(checkpoint_path=str(refpath))
+    else:
+        model = SimpleDETR(num_classes=num_classes, lr=lr, wd=wd, loss_func=criterion)
 
     # model = load_model(num_classes, device, folder)
     strategy = ddp(find_unused_parameters=False)
@@ -181,6 +186,12 @@ def parse_args(argv):
         default=3,
         type=int,
         help="random seed to init the model and shuffle the data",
+    )
+    parser.add_argument(
+        "--reference",
+        default=None,
+        type=str,
+        help="path of a model checkpoint to start from (if empty or None, train from scratch)",
     )
     parser.add_argument(
         "--gpu",
