@@ -33,8 +33,7 @@ def parse_args(argv):
     parser.add_argument('--batch_size', default=32, type=int, help='Number of Classes')
     parser.add_argument('--gpu', default=[0,1,2,3], help='GPU device number, ignored if absent', nargs='+')
     parser.add_argument('--cp', default='checkpoints', type=str, help='Checkpoints folder, ignored if it doesn\'t exist')
-    parser.add_argument('--ds_version', default='v1.0-train', type=str, help='dataset version')
-    parser.add_argument('--ds_path', default='/p/scratch/training2203/heatai/data/sets/nuimage', type=str, help='dataset path')
+    parser.add_argument('--profil_target', default='gpu', type=str, help='cpu, gpu or xgpu')
 
     try:
         parsed = parser.parse_args(argv)
@@ -58,12 +57,18 @@ if __name__ == '__main__':
     ds_length = args.ds_length
     batch_size = args.batch_size
     gpus = [int(i) for i in (args.gpu)]
-    device = get_cuda_device()
-    run_on_gpu = "gpu" in str(device) or len(gpus) > 0
     folder = args.cp
+    profil_target = args.profil_target
 
     # setup
-    device = get_cuda_device()
+    device = None
+    if profil_target is 'cpu':
+        device = torch.device('cpu')
+    elif torch.cuda.is_available():
+        device = get_cuda_device()
+    else:
+        raise Exception('Profil target device not set')
+    run_on_gpu = "gpu" in str(device) or len(gpus) > 0
     model = load_model(num_classes, device, folder)
 
     optimizer = AdamW(model.parameters(), lr=lr, weight_decay=wd)
@@ -78,7 +83,7 @@ if __name__ == '__main__':
         tgt_dict = {'labels': [], 'boxes': []}
 
         labels = np.random.randint(low=1, high=9, size=number_of_objs)
-        boxes = np.random.uniform(low=0, high=1, size=(number_of_objs, 4))
+        boxes = np.random.uniform(low=0, high=1, size=(number_of_objs, 4)).astype(np.float32)
 
         labels = torch.from_numpy(labels).to(device)
         boxes = torch.from_numpy(boxes).to(device)
@@ -89,7 +94,9 @@ if __name__ == '__main__':
         targets.append(tgt_dict)
 
     model = model.to(device)
-    model = nn.DataParallel(model, device_ids=gpus)
+
+    if profil_target is 'gpu' or profil_target is 'xgpu':
+        model = nn.DataParallel(model, device_ids=gpus)
 
     nb_iters = 11
     warmup_iters = 10
@@ -107,10 +114,10 @@ if __name__ == '__main__':
         output = model(data)
         if i >= warmup_iters: torch.cuda.nvtx.range_pop()
 
-        loss = criterion(output, targets)
+        batch_losses_dict, total_batch_loss = criterion(output, targets)
 
         if i >= warmup_iters: torch.cuda.nvtx.range_push("backward")
-        loss.backward()
+        total_batch_loss.backward()
         if i >= warmup_iters: torch.cuda.nvtx.range_pop()
 
         if i >= warmup_iters: torch.cuda.nvtx.range_push("opt.step()")
