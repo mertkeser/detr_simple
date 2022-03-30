@@ -125,9 +125,10 @@ def main(args):
 
     # default is to train from scratch
     # we might want to consider loading a checkpoint
-    refpath = Path(args.reference)
+
     model = None
-    if not args.reference:
+    if args.reference:
+        refpath = Path(args.reference)
         if refpath.exists() and refpath.stat().st_size > 0:
             model = SimpleDETR.load_from_checkpoint(checkpoint_path=str(refpath))
     else:
@@ -148,12 +149,18 @@ def main(args):
     #     details: https://pytorch-lightning.readthedocs.io/en/latest/api/pytorch_lightning.strategies.DDPShardedStrategy.html#pytorch_lightning.strategies.DDPShardedStrategy
     # else:
     #     print("using ddp strategy")
+    nconfig = [int(item) for item in args.nodeconfig.split("x")]
+    config = {}
+    if nconfig[0] < 2:
+        config = dict(gpus=gpus[: nconfig[-1]])
+    else:
+        config = dict(num_nodes=nconfig[0], devices=nconfig[-1])
+    print(f"deduced DDP configuration {config} from {nconfig}")
 
     trainer = pl.Trainer(
         max_epochs=epochs,
-        gpus=gpus,
         strategy=strategy,
-        default_root_dir=None if not cp else cp
+        **config
         ##logger=TensorBoardLogger("./logs", name="best_model_ever"),
         # log every nth batch, default 50
         ##log_every_n_steps=10,
@@ -199,6 +206,12 @@ def parse_args(argv):
         help="GPU device number, ignored if absent",
         nargs="+",
     )
+    parser.add_argument(
+        "--nodeconfig",
+        default="1x4",
+        help="node configuration for multi_node training (4 nodes with 2 gpus each: 4x2, 2 nodes with 3 gpus each: 2x3)",
+    )
+
     parser.add_argument(
         "--cp",
         default="",
