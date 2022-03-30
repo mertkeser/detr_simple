@@ -95,10 +95,10 @@ if __name__ == '__main__':
 
     model = model.to(device)
 
-    if profil_target is 'gpu' or profil_target is 'xgpu':
+    if profil_target is 'xgpu':
         model = nn.DataParallel(model, device_ids=gpus)
 
-    nb_iters = 11
+    nb_iters = 13
     warmup_iters = 10
     for i in range(nb_iters):
         optimizer.zero_grad()
