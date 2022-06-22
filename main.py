@@ -20,7 +20,10 @@ from torch import nn
 from pathlib import Path
 
 import pytorch_lightning as pl
-from pytorch_lightning.strategies import DDPStrategy
+from pytorch_lightning.strategies import DDPStrategy as ddp
+
+# from pytorch_lightning.strategies import DDPShardedStrategy as dshard
+# from pytorch_lightning.strategies import DeepSpeedStrategy as dspeed
 
 # lr = 1e-4
 # wd = 1e-4
@@ -87,6 +90,7 @@ def main(args):
     # path_to_ds = r'C:\Code\_datasets\nuimages'
     # path_to_ds = r"/p/scratch/training2203/heatai/data/sets/nuimage"
 
+    # consider porting this to a Lightning Data Module
     # Test training dataset
     train_nuim_dataset = NuimDataset(
         dspath, version=dsversion, transform=transforms.Compose([Rescale((800, 800))])
@@ -118,22 +122,45 @@ def main(args):
     )
 
     criterion = SetCriterion(num_classes=num_classes)
-    model = SimpleDETR(num_classes=num_classes, lr=lr, wd=wd, loss_func=criterion)
+
+    # default is to train from scratch
+    # we might want to consider loading a checkpoint
+
+    model = None
+    if args.reference:
+        refpath = Path(args.reference)
+        if refpath.exists() and refpath.stat().st_size > 0:
+            model = SimpleDETR.load_from_checkpoint(checkpoint_path=str(refpath))
+    else:
+        model = SimpleDETR(num_classes=num_classes, lr=lr, wd=wd, loss_func=criterion)
 
     # model = load_model(num_classes, device, folder)
-
-    # optimizer = AdamW(model.parameters(), lr=lr, weight_decay=wd)
-
-    # model = model.to(device)
-
-    # model = nn.DataParallel(model, device_ids=gpus)
+    strategy = ddp(find_unused_parameters=False)
+    # the following is a placeholder, use these lines of code if you like to integrate
+    #   deepspeed (https://pypi.org/project/deepspeed/) or
+    #   fairscale (https://pypi.org/project/fairscale/)
+    # if "speed" in args.strategy.lower():
+    #     print("using deepspeed strategy")
+    #     strategy = dspeed(pin_memory=True)
+    #     details: https://pytorch-lightning.readthedocs.io/en/latest/api/pytorch_lightning.strategies.DeepSpeedStrategy.html#pytorch_lightning.strategies.DeepSpeedStrategy
+    # elif "shard" in args.strategy.lower():
+    #     print("using DDP sharded strategy")
+    #     strategy = dshard(pin_memory=True)
+    #     details: https://pytorch-lightning.readthedocs.io/en/latest/api/pytorch_lightning.strategies.DDPShardedStrategy.html#pytorch_lightning.strategies.DDPShardedStrategy
+    # else:
+    #     print("using ddp strategy")
+    nconfig = [int(item) for item in args.nodeconfig.split("x")]
+    config = {}
+    if nconfig[0] < 2:
+        config = dict(gpus=gpus[: nconfig[-1]])
+    else:
+        config = dict(num_nodes=nconfig[0], devices=nconfig[-1])
+    print(f"deduced DDP configuration {config} from {nconfig}")
 
     trainer = pl.Trainer(
         max_epochs=epochs,
-        ##gpus=[0,1],
-        gpus=gpus,
-        ##strategy="ddp",
-        strategy=DDPStrategy(find_unused_parameters=False),
+        strategy=strategy,
+        **config
         ##logger=TensorBoardLogger("./logs", name="best_model_ever"),
         # log every nth batch, default 50
         ##log_every_n_steps=10,
@@ -146,56 +173,9 @@ def main(args):
         val_dataloaders=test_dataloader,
     )
 
-    # for epoch in range(epochs):
-
-    #     epoch_start_time = time.time()
-
-    #     epoch_loss = 0.0
-
-    #     batches = len(dataloader.dataset) // dataloader.batch_size
-
-    #     for batch_num, (img, tgts) in enumerate(dataloader):
-
-    #         batch_start_time = time.time()
-
-    #         img = img.to(device)
-    #         tgts_formatted_to_device = format_nuim_targets(tgts, device)
-
-    #         pred = model(img)
-
-    #         batch_losses_dict, total_batch_loss = criterion(
-    #             pred, tgts_formatted_to_device
-    #         )
-
-    #         optimizer.zero_grad()
-    #         total_batch_loss.backward()
-    #         optimizer.step()
-
-    #         batch_loss_np = total_batch_loss.detach().cpu().numpy()
-
-    #         epoch_loss += total_batch_loss.detach().cpu().numpy()
-
-    #         # save_model(model, folder, name='e{}b{}.pth'.format(epoch, batch_num))
-    #         batch_delta_time = time.time() - batch_start_time
-    #         print(
-    #             "({:.3f}s) Batch [{}/{}] loss:".format(
-    #                 batch_delta_time, batch_num + 1, batches
-    #             ),
-    #             batch_loss_np,
-    #         )
-
-    #     # save_model(model, folder, name='e{}.pth'.format(epoch))
-    #     if Path(folder).exists():
-    #         print(f"checkpoint written to {folder}")
-    #         save_model(model, folder)
-    #     else:
-    #         print("skipping writing checkpoints")
-
-    #     epoch_delta_time = time.time() - epoch_start_time
-    #     print(
-    #         "({:.3f}s) Epoch [{}/{}] loss:".format(epoch_delta_time, epoch + 1, epochs),
-    #         epoch_loss,
-    #     )
+    if len(folder) > 1:
+        dst = Path(folder) / "last.pth"
+        model.save_checkpoint(str(dst))
 
     print("Training ended in {:.3f}s".format(time.time() - start_time))
 
@@ -215,17 +195,36 @@ def parse_args(argv):
         help="random seed to init the model and shuffle the data",
     )
     parser.add_argument(
+        "--reference",
+        default=None,
+        type=str,
+        help="path of a model checkpoint to start from (if empty or None, train from scratch)",
+    )
+    parser.add_argument(
         "--gpu",
         default=[0, 1, 2, 3],
         help="GPU device number, ignored if absent",
         nargs="+",
     )
     parser.add_argument(
+        "--nodeconfig",
+        default="1x4",
+        help="node configuration for multi_node training (4 nodes with 2 gpus each: 4x2, 2 nodes with 3 gpus each: 2x3)",
+    )
+
+    parser.add_argument(
         "--cp",
         default="",
         type=str,
         help="Checkpoints folder (note: if the folder does not exist, checkpointing is skipped)",
     )
+    # parser.add_argument(
+    #     "--strategy",
+    #     default="ddp",
+    #     choices="ddp,dshard,dspeed".split(","),
+    #     type=str,
+    #     help="strategy for parallelization, for details see https://pytorch-lightning.readthedocs.io/en/latest/guides/speed.html#training-on-accelerators",
+    # )
     parser.add_argument(
         "--ds_version", default="v1.0-train", type=str, help="dataset version"
     )
